@@ -2,6 +2,7 @@
 
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 
@@ -34,54 +35,25 @@ class DDCController
 
     public static void SetSplit()
     {
-        IntPtr hWnd = GetForegroundWindow();
-        IntPtr hMonitor = MonitorFromWindow(hWnd, 2); // MONITOR_DEFAULTTONEAREST
-
-        uint numMonitors = 0;
-        GetNumberOfPhysicalMonitorsFromHMONITOR(hMonitor, ref numMonitors);
-
-        var monitors = new PHYSICAL_MONITOR[numMonitors];
-        GetPhysicalMonitorsFromHMONITOR(hMonitor, numMonitors, monitors);
-
         // E9(00 01 02 21 22 24 27 28 29 2A )
         // switch USB: E7 0xFF00
-        foreach (var mon in monitors.Where(x => x.szPhysicalMonitorDescription.IndexOf("dell", StringComparison.OrdinalIgnoreCase) >= 0))
+        foreach (var mon in GetMonitors())
         {
             SetVCPFeature(mon.hPhysicalMonitor, 0xE9, 0x24);
         }
     }
     public static void RemoveSplit()
     {
-        IntPtr hWnd = GetForegroundWindow();
-        IntPtr hMonitor = MonitorFromWindow(hWnd, 2); // MONITOR_DEFAULTTONEAREST
-
-        uint numMonitors = 0;
-        GetNumberOfPhysicalMonitorsFromHMONITOR(hMonitor, ref numMonitors);
-
-        var monitors = new PHYSICAL_MONITOR[numMonitors];
-        GetPhysicalMonitorsFromHMONITOR(hMonitor, numMonitors, monitors);
-
-        // E9(00 01 02 21 22 24 27 28 29 2A )
-        // switch USB: E7 0xFF00
-        foreach (var mon in monitors.Where(x => x.szPhysicalMonitorDescription.IndexOf("dell", StringComparison.OrdinalIgnoreCase) >= 0))
+        foreach (var mon in GetMonitors())
         {
             SetVCPFeature(mon.hPhysicalMonitor, 0xE9, 0x00);
         }
     }
     public static void SwitchUsb()
     {
-        IntPtr hWnd = GetForegroundWindow();
-        IntPtr hMonitor = MonitorFromWindow(hWnd, 2); // MONITOR_DEFAULTTONEAREST
-
-        uint numMonitors = 0;
-        GetNumberOfPhysicalMonitorsFromHMONITOR(hMonitor, ref numMonitors);
-
-        var monitors = new PHYSICAL_MONITOR[numMonitors];
-        GetPhysicalMonitorsFromHMONITOR(hMonitor, numMonitors, monitors);
-
         // E9(00 01 02 21 22 24 27 28 29 2A )
         // switch USB: E7 0xFF00
-        foreach (var mon in monitors.Where(x => x.szPhysicalMonitorDescription.IndexOf("dell", StringComparison.OrdinalIgnoreCase) >= 0))
+        foreach (var mon in GetMonitors())
         {
             SetVCPFeature(mon.hPhysicalMonitor, 0xE7, 0xFF00);
         }
@@ -89,16 +61,7 @@ class DDCController
 
     public static void SetInputSource(uint inputSource)
     {
-        IntPtr hWnd = GetForegroundWindow();
-        IntPtr hMonitor = MonitorFromWindow(hWnd, 2); // MONITOR_DEFAULTTONEAREST
-
-        uint numMonitors = 0;
-        GetNumberOfPhysicalMonitorsFromHMONITOR(hMonitor, ref numMonitors);
-
-        var monitors = new PHYSICAL_MONITOR[numMonitors];
-        GetPhysicalMonitorsFromHMONITOR(hMonitor, numMonitors, monitors);
-
-        foreach (var mon in monitors)
+        foreach (var mon in GetMonitors())
         {
             // 0x60 is the VCP code for Input Source
             SetVCPFeature(mon.hPhysicalMonitor, 0x60, inputSource);
@@ -109,6 +72,17 @@ class DDCController
 
     internal static void SwapSides()
     {
+
+        // E9(00 01 02 21 22 24 27 28 29 2A )
+        // switch sides E5 0xF001
+        foreach (var mon in GetMonitors())
+        {
+            SetVCPFeature(mon.hPhysicalMonitor, 0xE5, 0xF001);
+        }
+    }
+
+    private static IEnumerable<PHYSICAL_MONITOR> GetMonitors()
+    {
         IntPtr hWnd = GetForegroundWindow();
         IntPtr hMonitor = MonitorFromWindow(hWnd, 2); // MONITOR_DEFAULTTONEAREST
 
@@ -117,12 +91,11 @@ class DDCController
 
         var monitors = new PHYSICAL_MONITOR[numMonitors];
         GetPhysicalMonitorsFromHMONITOR(hMonitor, numMonitors, monitors);
-
-        // E9(00 01 02 21 22 24 27 28 29 2A )
-        // switch sides E5 0xF001
-        foreach (var mon in monitors.Where(x => x.szPhysicalMonitorDescription.IndexOf("dell", StringComparison.OrdinalIgnoreCase) >= 0))
+        var dells = monitors.Where(x => x.szPhysicalMonitorDescription.IndexOf("dell", StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+        if (dells.Count == 0)
         {
-            SetVCPFeature(mon.hPhysicalMonitor, 0xE5, 0xF001);
+            Console.Error.WriteLine($"No Dell monitors found");
         }
+        return dells;
     }
 }
